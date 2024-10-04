@@ -78,6 +78,60 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    // Mostrar la cámara y el cuadro de enfoque dinámico
+    document.getElementById('btn-abrir-camara').addEventListener('click', function () {
+        initializeAudioContext();
+        const scannerContainer = document.getElementById('scanner-container');
+        const mainContent = document.getElementById('main-content');
+
+        scannerContainer.style.display = 'block';
+        mainContent.style.display = 'none';
+
+        try {
+            // Inicializar el objeto Html5Qrcode
+            html5QrCode = new Html5Qrcode("scanner-video");
+
+            const config = {
+                fps: 10, // Reducir el FPS para minimizar repeticiones
+                qrbox: { width: 250, height: 250 },
+                disableFlip: true
+            };
+
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                (decodedText) => {
+                    if (!scanLock) {
+                        handleBarcodeScan(decodedText);
+                        scanLock = true;
+                        setTimeout(() => { scanLock = false; }, 3000);
+                    }
+                },
+                (errorMessage) => console.log(`Error de escaneo: ${errorMessage}`)
+            ).then(() => {
+                console.log("Cámara iniciada correctamente.");
+            }).catch((err) => {
+                console.error("Error al iniciar la cámara:", err);
+                alert("Error al iniciar la cámara. Asegúrate de permitir el acceso.");
+            });
+        } catch (e) {
+            console.error("Error al crear Html5Qrcode:", e);
+        }
+    });
+
+    // Detener la cámara y ocultar el cuadro de enfoque dinámico
+    document.getElementById('close-scanner').addEventListener('click', function () {
+        const scannerContainer = document.getElementById('scanner-container');
+        const mainContent = document.getElementById('main-content');
+
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                scannerContainer.style.display = 'none';
+                mainContent.style.display = 'block';
+            }).catch(err => console.error("Error al detener la cámara:", err));
+        }
+    });
+
     // Manejar la tecla "Enter" en el campo de entrada de código de barras
     document.getElementById('barcodeInput').addEventListener('keypress', (event) => {
         if (event.key === 'Enter') {
@@ -197,6 +251,26 @@ document.addEventListener('DOMContentLoaded', function () {
         clearBarcodeInput();
     }
 
+    // Mostrar resultado temporalmente (verde para éxito, rojo para error)
+    function showTemporaryResult(isSuccess) {
+        const scanResultContainer = document.getElementById('scan-result');
+        const resultIcon = document.getElementById('result-icon');
+
+        if (isSuccess) {
+            resultIcon.innerHTML = '&#10004;'; // Checkmark (✓)
+            scanResultContainer.style.backgroundColor = 'rgba(0, 255, 0, 0.8)'; // Fondo verde
+        } else {
+            resultIcon.innerHTML = '&#10006;'; // Crossmark (✖)
+            scanResultContainer.style.backgroundColor = 'rgba(255, 0, 0, 0.8)'; // Fondo rojo
+        }
+
+        // Mostrar el resultado temporalmente
+        scanResultContainer.classList.add('show-result');
+        setTimeout(() => {
+            scanResultContainer.classList.remove('show-result');
+        }, 2000); // Mostrar durante 3 segundos
+    }
+
     // Funciones de visualización de lista y progreso
     function updateScannedList(scannedCode = '') {
         const scannedList = document.getElementById('scanned-list');
@@ -222,15 +296,12 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const additionalCodes = product.codigos_validos.join(', ');
-            const scannedSubcodes = product.scannedSubcodes.join(', ');
-            const noSufijoCount = product.noSufijoCount;
 
             const li = document.createElement('li');
             li.className = statusClass;
             li.innerHTML = `
-                <span><strong>Código Principal:</strong> ${product.codigo_barra}</span><br>
-                <span><strong>Códigos Adicionales:</strong> ${additionalCodes}</span><br>
-                <span><strong>Subcódigos Escaneados:</strong> ${scannedSubcodes} ${noSufijoCount > 0 ? `(Sin Sufijo: ${noSufijoCount})` : ''}</span><br>
+                
+                <span><strong>Códigos Adicionales:</strong> ${additionalCodes}</span><br>                
                 <span class="city"><strong>Ciudad:</strong> ${product.ciudad}</span>
                 <div class="progress-bar">
                     <div class="progress-bar-inner" style="width: ${progressWidth}%"></div>
@@ -251,4 +322,5 @@ document.addEventListener('DOMContentLoaded', function () {
     function clearBarcodeInput() {
         document.getElementById('barcodeInput').value = '';
     }
+
 });
